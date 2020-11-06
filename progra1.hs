@@ -3,6 +3,9 @@ import qualified Data.Text as T
 import qualified Data.Map
 import qualified Data.Tuple
 import qualified Data.Char
+import Data.List (sort,map)
+import System.IO
+import Prelude hiding (null, lookup, map, filter)
 
 {- PROGRA 1 -}
 
@@ -269,3 +272,141 @@ getMaxLine n line = last (lineBreaksEach enHyp n line)
 	*Main> unwords ["Hola","que","tal"]          
 	"Hola que tal"
 -}
+
+{- APP -}
+
+-- El Estado es una "Map" (hash String -> Int) que
+-- para cada palabra da el número de veces que la ha encontrado
+--type Estado = Data.Map.Map [Char] Int
+type Estado = Data.Map.Map String [String]
+
+-- main crea un Estado vacío e invoca a mainloop
+-- el cual recibe el Estado como parámetro
+main :: IO ()
+main = do 
+       mainloop (Data.Map.fromList[])
+
+-- Ciclo de ejecución:
+--     recibe un Estado
+--     lee un comando
+--     ejecuta un comando que produce un nuevo Estado
+--     se invoca recursivamente con el nuevo Estado.
+mainloop :: Estado -> IO ()
+mainloop estado = do
+  putStr ">> "
+  inpStr <- getLine
+  let tokens  = words inpStr
+  let comando = tokens!!0
+  let firstEntry = tokens!!1
+  
+  case comando of
+     "leer" -> do
+               inh <- openFile firstEntry ReadMode
+               nuevoestado <- cargar inh Data.Map.empty -- acá iba estado, puse esto para que se cargue nuevo siempre
+               hClose inh
+               putStrLn $ firstEntry ++ " cargado" ++ "(" ++ (show (Data.Map.size nuevoestado)) ++ " palabras)"
+               mainloop nuevoestado
+     "show" -> do
+               print (Data.Map.assocs estado)
+               mainloop estado
+     "ins"  -> do
+               nuevoestado <- insertar (tail(tokens)) estado
+               mainloop nuevoestado
+     "save" -> do
+               outh <- openFile firstEntry WriteMode
+               descargar outh (sort (Data.Map.toList estado))
+               hClose outh
+               mainloop estado     
+ {-    "clin" -> do
+                let (nuevoestado, salida)= contar_linea (tail tokens) estado
+                putStrLn salida
+                mainloop nuevoestado
+     "borrar" -> do
+                   let (nuevoestado, salida)= cmd_borrar (tail tokens) estado
+                   putStrLn salida
+                   mainloop nuevoestado
+     "imp" -> do
+                 let (nuevoestado, salida) = cmd_imp estado
+                 putStrLn salida
+                 mainloop nuevoestado -}
+     "fin" -> do
+                 putStrLn "Saliendo..."
+     _     -> do
+                 putStrLn $ "Comando desconocido ("++ comando ++"): '" ++ inpStr ++ "'" 
+                 mainloop estado
+
+
+-- función que implementa leer un archivo línea por línea
+-- y contar las palabras de cada línea
+cargar :: Handle -> Estado -> IO Estado
+cargar inh estado = do
+      ineof <- hIsEOF inh
+      if ineof then return estado
+               else do inpStr <- hGetLine inh
+                       let nuevoestado = Data.Map.insert (Data.Tuple.fst (stringToTuple inpStr)) (Data.Tuple.snd (stringToTuple inpStr)) estado
+                       cargar inh nuevoestado
+
+
+{- Toma el string de una linea del archivo del diccionario y lo convierte en un tuple para insertarlo 
+   al Map Estado -}
+stringToTuple :: String -> (String, [String])
+stringToTuple str = let temp = (words str) in (head(temp), stringToTupleAux (last temp)) 
+
+{- Toma la separacion de una palabra (con -) y lo convierte en una lista de palabras -}
+stringToTupleAux :: String -> [String]
+stringToTupleAux str = words [(if l /= '-' then l else ' ') | l <- str]
+
+
+insertar :: [String] -> Estado -> IO Estado
+insertar wrds estadoAct = do
+                           return (Data.Map.insert (Data.Tuple.fst (stringToTuple (head wrds))) (Data.Tuple.snd (stringToTuple (last wrds))) estadoAct)
+
+{- cargar :: Handle -> Estado -> IO Estado
+cargar inh estado = do
+      ineof <- hIsEOF inh
+      if ineof then return estado
+               else do inpStr <- hGetLine inh
+                       print(inpStr)
+                       let nuevoestado = foldl contar_token estado (words (map Data.Char.toLower inpStr))
+                       cargar inh nuevoestado -}
+
+{- -- función que implementa el comando contar_linea
+contar_linea :: [String] -> Estado -> (Estado, String) 
+contar_linea tokens estado = (foldl contar_token estado tokens, "contar_linea" )
+
+contar_token :: Estado -> String -> Estado
+contar_token estado tok = case Data.Map.lookup tok estado of
+                               Nothing -> Data.Map.insert tok 1 estado
+                               Just valor -> Data.Map.insert tok (valor+1) estado
+  
+-- función que implementa el comando borrar
+cmd_borrar::[String] -> Estado -> (Estado, String)
+cmd_borrar [] estado = (estado, "No se especificó qué borrar")
+cmd_borrar (v:_) estado = if Data.Map.member v estado 
+                               then (Data.Map.delete v estado, v ++ " borrado")
+                               else (estado, v ++ " no aparece")
+
+-- función que maneja un comando desconocido
+cmd_desconocido ::
+      String -> String -> Estado -> (Bool, Estado, String)
+cmd_desconocido cmd comando estado = (False,estado,mensaje)
+  where mensaje = "Comando desconocido ("++ cmd ++"): '" 
+                                         ++ comando ++ "'"
+
+-- función que implementa el comando imp
+cmd_imp :: Estado -> (Estado, String)
+cmd_imp estado = (estado, show estado)
+-}
+
+-- función que va a cargar a un archivo el diccionario resultante
+descargar :: Handle -> [(String,[String])] -> IO ()
+descargar outh [] = return ()
+descargar outh ((k,v):kvs) = do hPutStrLn outh $ k ++ " " ++ (formatWordSep v)
+                                descargar outh kvs
+
+-- Toma la lista con la palabra separada y le da el formato con guiones
+formatWordSep :: [String] -> String
+formatWordSep [x] = x
+formatWordSep (x:xs) = x ++ "-" ++ formatWordSep xs
+
+
