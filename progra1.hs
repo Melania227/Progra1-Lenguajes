@@ -207,8 +207,14 @@ insertBlanksAux2 n (x:xs) = if n /= 0
 {- Reciba un string y un tamaño de línea, y devuelve una lista de strings que no sean más largos que el tamaño 
    especificado -}
 --separarYalinear :: Int -> Options -> Options -> String -> [String]
-separarYalinear :: HypMap -> Int -> Options -> Options -> String -> [String]
-separarYalinear dic n cond1 cond2 txt = case cond1 of
+separarYalinear :: Int -> Options -> Options -> String -> [String]
+separarYalinear n cond1 cond2 txt = separarYalinearAux dic n cond1 cond2 txt 
+                                    where dic = Data.Map.fromList [ ("controla",["con","tro","la"]), 
+                                                                    ("futuro",["fu","tu","ro"]),
+                                                                    ("presente",["pre","sen","te"])]
+                                                                    
+separarYalinearAux :: HypMap -> Int -> Options -> Options -> String -> [String]
+separarYalinearAux dic n cond1 cond2 txt = case cond1 of
 										SEPARAR -> separarYalinearAuxS dic n cond2 (string2line txt)
 										NOSEPARAR -> separarYalinearAuxNS n cond2 (string2line txt)
 
@@ -278,7 +284,7 @@ mainloop estado = do
   let firstEntry = tokens!!1
   
   case comando of
-     "leer" -> do
+     "load" -> do
                inh <- openFile firstEntry ReadMode
                nuevoestado <- cargar inh Data.Map.empty -- acá iba estado, puse esto para que se cargue nuevo siempre
                hClose inh
@@ -289,11 +295,13 @@ mainloop estado = do
                mainloop estado
      "ins"  -> do
                nuevoestado <- insertar (tail(tokens)) estado
+               putStrLn $ "Palabra " ++ (tail(tokens)!!0) ++ " agregada"
                mainloop nuevoestado
      "save" -> do
                outh <- openFile firstEntry WriteMode
                descargar outh (sort (Data.Map.toList estado))
                hClose outh
+               putStrLn $ "(" ++ (show (Data.Map.size estado)) ++ " palabras)"
                mainloop estado
      "split" -> do 
                   let splitTemp = (cmd_split estado (read (tail(tokens)!!0) :: Int) (tail(tokens)!!1) (tail(tokens)!!2) (unwords (drop 4 tokens)))
@@ -355,10 +363,10 @@ formatWordSep (x:xs) = x ++ "-" ++ formatWordSep xs
 
 {- Implementa el comando split -}
 cmd_split :: Estado -> Int -> String -> String -> String -> [String]
-cmd_split estado n opt1 opt2 txt | (opt1 == "s" && opt2 == "s") = separarYalinear estado n SEPARAR AJUSTAR txt
-                                 | (opt1 == "s" && opt2 == "n") = separarYalinear estado n SEPARAR NOAJUSTAR txt
-                                 | (opt1 == "n" && opt2 == "s") = separarYalinear estado n NOSEPARAR AJUSTAR txt
-                                 | otherwise = separarYalinear estado n NOSEPARAR NOAJUSTAR txt
+cmd_split estado n opt1 opt2 txt | (opt1 == "s" && opt2 == "s") = separarYalinearAux estado n SEPARAR AJUSTAR txt
+                                 | (opt1 == "s" && opt2 == "n") = separarYalinearAux estado n SEPARAR NOAJUSTAR txt
+                                 | (opt1 == "n" && opt2 == "s") = separarYalinearAux estado n NOSEPARAR AJUSTAR txt
+                                 | otherwise = separarYalinearAux estado n NOSEPARAR NOAJUSTAR txt
 
 {- Carga el contenido de un txt a un string -}
 fromArchivoToString :: Handle -> String -> IO String
