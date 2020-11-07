@@ -3,11 +3,13 @@ import qualified Data.Text as T
 import qualified Data.Map
 import qualified Data.Tuple
 import qualified Data.Char
-import Data.List (sort,map)
+import Data.List (sort,map, intercalate)
 import System.IO
 import Prelude hiding (null, lookup, map, filter)
 
 {- PROGRA 1 -}
+
+{- PARTE 1 -}
 
 type Line = [Token]
 data Token = Word String | Blank | HypWord String
@@ -97,28 +99,22 @@ mergersAux3 :: [String] -> String
 mergersAux3 [] = ""
 mergersAux3 (x:xs) = x ++ mergersAux3 xs
 
-{- GUIA DE FUNCIONAMIENTO
-"a" + "bcd"
-"ab" + "cd"
-string ("" + head), tail 
-string ("previous head" + head), tail  (drop 1 line)-}
-
 
 type HypMap = Data.Map.Map String [String]
-enHyp :: HypMap
+{- enHyp :: HypMap
 enHyp = Data.Map.fromList [ ("controla",["con","tro","la"]), 
                             ("futuro",["fu","tu","ro"]),
-                            ("presente",["pre","sen","te"])]
+                            ("presente",["pre","sen","te"])] -}
 
 {- Separa un token Word de todas las formas posibles que se pueden derivar del Data.Map de arriba. -}
 hyphenate :: HypMap -> Token -> [(Token,Token)]
-hyphenate enHyp wrd = let sinPnt = (deletePunctuation (line2string [wrd])) in 
-					 (if Data.Map.member (sinPnt) (enHyp) then hyphenateAux enHyp wrd sinPnt
+hyphenate dic wrd = let sinPnt = (deletePunctuation (line2string [wrd])) in 
+					 (if Data.Map.member (sinPnt) (dic) then hyphenateAux dic wrd sinPnt
 					  else [])
 
 {- Vengo a buscar la separacion de la palabra en el enHyp y le hago mergers y llamo a Aux2. -}
 hyphenateAux :: HypMap -> Token -> String -> [(Token,Token)]
-hyphenateAux enHyp wrd sinPnt = let tom = Data.Map.findWithDefault ["no","hay"] (sinPnt) (enHyp) in
+hyphenateAux dic wrd sinPnt = let tom = Data.Map.findWithDefault ["no","hay"] (sinPnt) (dic) in
 						hyphenateAux2 (mergers tom) (givePunctuation (line2string [wrd]))
 
 {- Tomo cada una de las merge posibles y le coloco Hypword a la primera parte y Word a la segunda. -}
@@ -140,7 +136,7 @@ givePunctuation str = [l | l <- str, (Data.Char.isPunctuation l)]
 {- Toma las entradas y se las pasa a una funcion auxiliar que ademas le pasa la ultima palabra con sus 
 posibles separaciones -}
 lineBreaks :: HypMap -> Int -> Line -> [(Line,Line)]
-lineBreaks enHyp n line = lineBreaksAux n line (hyphenate enHyp (last line)) 
+lineBreaks dic n line = lineBreaksAux n line (hyphenate dic (last line)) 
 
 {- Toma la linea original y le realiza su debido breakline, añadiendole tambien los breaklines de las palabras
    que la funcion Aux2 forman -}
@@ -163,15 +159,9 @@ lineBreaksEach enHyp n line = let sep = breakLine n line in
 
 {- Toma los datos de entrada y se los pasa a Aux2, pero antes realiza el cálculo sobre la cantidad de 
    posibles divisiones que tiene la palabra siguiente a la última del breakLine original sin separaciones -}
-{- NO CONSIDERA UNA LINEA CON PALABRAS QUE NO ESTÁN EN EL DICCIONARIO CUIDADO!!! -}
 lineBreaksEachAux :: HypMap -> Int -> Line -> (Line,Line) -> [(Line,Line)]
-lineBreaksEachAux enHyp n line sep | Data.Tuple.snd sep == [] = [breakLine n line]
-								   | otherwise = lineBreaksEachAux2 n line (hyphenate enHyp (head (Data.Tuple.snd sep)))
-
-{- lineBreaksEachAux :: HypMap -> Int -> Line -> (Line,Line) -> [(Line,Line)]
-lineBreaksEachAux enHyp n line sep = let hyp = hyphenate enHyp (head (Data.Tuple.snd sep)) in
-										(if (hyp/=[]) then lineBreaksEachAux2 n line (hyp)
-										 else [breakLine n line]) -}
+lineBreaksEachAux dic n line sep | Data.Tuple.snd sep == [] = [breakLine n line]
+								   | otherwise = lineBreaksEachAux2 n line (hyphenate dic (head (Data.Tuple.snd sep)))
 
 {- Toma la linea original y le realiza su debido breakline, añadiendole tambien los breaklines de las lineas
    que la funcion Aux3 forma -}
@@ -185,8 +175,6 @@ lineBreaksEachAux3 n [] index = []
 lineBreaksEachAux3 n (x:xs) split | (lineLength (Data.Tuple.fst split) == n) = []
 lineBreaksEachAux3 n (x:xs) split | (n - lineLength (Data.Tuple.fst split)) < (tokenLength (Data.Tuple.fst x)+1) = lineBreaksEachAux3 n xs split
 									   | otherwise = ((Data.Tuple.fst split) ++ [Data.Tuple.fst x] ++ [Data.Tuple.snd x] ++ (tail (Data.Tuple.snd split))) : lineBreaksEachAux3 n xs split
-
-
 
 
 {- Tomo la linea y descarto los 2 casos de descarte, si no son estos entonces llamo una función aux -}
@@ -218,9 +206,10 @@ insertBlanksAux2 n (x:xs) = if n /= 0
 
 {- Reciba un string y un tamaño de línea, y devuelve una lista de strings que no sean más largos que el tamaño 
    especificado -}
-separarYalinear :: Int -> Options -> Options -> String -> [String]
-separarYalinear n cond1 cond2 txt = case cond1 of
-										SEPARAR -> separarYalinearAuxS n cond2 (string2line txt)
+--separarYalinear :: Int -> Options -> Options -> String -> [String]
+separarYalinear :: HypMap -> Int -> Options -> Options -> String -> [String]
+separarYalinear dic n cond1 cond2 txt = case cond1 of
+										SEPARAR -> separarYalinearAuxS dic n cond2 (string2line txt)
 										NOSEPARAR -> separarYalinearAuxNS n cond2 (string2line txt)
 
 {- Para una Line se va a acomodar en una linea de cierto tamaño las palabras que entren, en este caso las
@@ -237,15 +226,15 @@ separarYalinearAuxNS n cond line = case cond of
 
 {- Para una Line se va a acomodar en una linea de cierto tamaño las palabras que entren, en este caso las
    palabras deben de tener separaciones de ser posible -}
-separarYalinearAuxS :: Int -> Options -> Line -> [String]
-separarYalinearAuxS n cond [] = []
-separarYalinearAuxS n cond line = case cond of 
-									AJUSTAR -> let tmp = getMaxLine n line in 
+separarYalinearAuxS :: HypMap -> Int -> Options -> Line -> [String]
+separarYalinearAuxS dic n cond [] = []
+separarYalinearAuxS dic n cond line = case cond of 
+									AJUSTAR -> let tmp = getMaxLine dic n line in 
 											 	(let tmp1 = line2string (insertBlanks (n-(lineLength (Data.Tuple.fst tmp))) (Data.Tuple.fst tmp)) in
-											  	(if (Data.Tuple.snd tmp) /= [] then tmp1 : separarYalinearAuxS n cond (Data.Tuple.snd tmp)
-												  else (unwords(words tmp1)) : separarYalinearAuxS n cond (Data.Tuple.snd tmp)))
-									NOAJUSTAR -> let tmp2 = getMaxLine n line in 
-												(line2string(Data.Tuple.fst tmp2)) : separarYalinearAuxS n cond (Data.Tuple.snd tmp2)
+											  	(if (Data.Tuple.snd tmp) /= [] then tmp1 : separarYalinearAuxS dic n cond (Data.Tuple.snd tmp)
+												  else (unwords(words tmp1)) : separarYalinearAuxS dic n cond (Data.Tuple.snd tmp)))
+									NOAJUSTAR -> let tmp2 = getMaxLine dic n line in 
+												(line2string(Data.Tuple.fst tmp2)) : separarYalinearAuxS dic n cond (Data.Tuple.snd tmp2)
 
 
 {- Nos brinda una sola linea con las palabras que cabían -}
@@ -262,22 +251,11 @@ deleteNFirst :: Int -> Line -> Line
 deleteNFirst n txtl = drop n txtl
 
 {- Brinda el elemento que llena más espacios de todos los posibles -}
-getMaxLine :: Int -> Line -> (Line, Line)
-getMaxLine n line = last (lineBreaksEach enHyp n line)
-
-
-{- Al [x] digale que quite todos los espacios y luego se los volvemos a poner xd 
-	*Main> words "Hola          que          tal"
-	["Hola","que","tal"]
-	*Main> unwords ["Hola","que","tal"]          
-	"Hola que tal"
--}
+getMaxLine :: HypMap -> Int -> Line -> (Line, Line)
+getMaxLine dic n line = last (lineBreaksEach dic n line)
 
 {- APP -}
 
--- El Estado es una "Map" (hash String -> Int) que
--- para cada palabra da el número de veces que la ha encontrado
---type Estado = Data.Map.Map [Char] Int
 type Estado = Data.Map.Map String [String]
 
 -- main crea un Estado vacío e invoca a mainloop
@@ -316,28 +294,32 @@ mainloop estado = do
                outh <- openFile firstEntry WriteMode
                descargar outh (sort (Data.Map.toList estado))
                hClose outh
-               mainloop estado     
- {-    "clin" -> do
-                let (nuevoestado, salida)= contar_linea (tail tokens) estado
-                putStrLn salida
-                mainloop nuevoestado
-     "borrar" -> do
-                   let (nuevoestado, salida)= cmd_borrar (tail tokens) estado
-                   putStrLn salida
-                   mainloop nuevoestado
-     "imp" -> do
-                 let (nuevoestado, salida) = cmd_imp estado
-                 putStrLn salida
-                 mainloop nuevoestado -}
-     "fin" -> do
+               mainloop estado
+     "split" -> do 
+                  let splitTemp = (cmd_split estado (read (tail(tokens)!!0) :: Int) (tail(tokens)!!1) (tail(tokens)!!2) (unwords (drop 4 tokens)))
+                  putStrLn (intercalate "\n" splitTemp)
+                  mainloop estado
+     "splitf" -> do
+                   inh <- openFile (tail(tokens)!!3) ReadMode
+                   txtRes <- fromArchivoToString inh ""
+                   hClose inh
+                   --print (txtRes)
+                   let splitTemp2 = cmd_split estado (read (tail(tokens)!!0) :: Int) (tail(tokens)!!1) (tail(tokens)!!2) txtRes
+                   if ((length tokens) < 6) then putStrLn (intercalate "\n" splitTemp2)
+                   else do 
+                           outh <- openFile (tail(tokens)!!4) WriteMode 
+                           cmd_splitfSave outh splitTemp2
+                           hClose outh
+                           putStrLn ("Guardado con exito")
+                   mainloop estado
+     "exit" -> do
                  putStrLn "Saliendo..."
      _     -> do
                  putStrLn $ "Comando desconocido ("++ comando ++"): '" ++ inpStr ++ "'" 
                  mainloop estado
 
 
--- función que implementa leer un archivo línea por línea
--- y contar las palabras de cada línea
+{- Lee el archivo para hacer el diccionario línea por línea y las inserta con formato en él -}
 cargar :: Handle -> Estado -> IO Estado
 cargar inh estado = do
       ineof <- hIsEOF inh
@@ -345,7 +327,6 @@ cargar inh estado = do
                else do inpStr <- hGetLine inh
                        let nuevoestado = Data.Map.insert (Data.Tuple.fst (stringToTuple inpStr)) (Data.Tuple.snd (stringToTuple inpStr)) estado
                        cargar inh nuevoestado
-
 
 {- Toma el string de una linea del archivo del diccionario y lo convierte en un tuple para insertarlo 
    al Map Estado -}
@@ -356,49 +337,12 @@ stringToTuple str = let temp = (words str) in (head(temp), stringToTupleAux (las
 stringToTupleAux :: String -> [String]
 stringToTupleAux str = words [(if l /= '-' then l else ' ') | l <- str]
 
-
+{- Inserta una palabra nueva al diccionario -}
 insertar :: [String] -> Estado -> IO Estado
 insertar wrds estadoAct = do
                            return (Data.Map.insert (Data.Tuple.fst (stringToTuple (head wrds))) (Data.Tuple.snd (stringToTuple (last wrds))) estadoAct)
 
-{- cargar :: Handle -> Estado -> IO Estado
-cargar inh estado = do
-      ineof <- hIsEOF inh
-      if ineof then return estado
-               else do inpStr <- hGetLine inh
-                       print(inpStr)
-                       let nuevoestado = foldl contar_token estado (words (map Data.Char.toLower inpStr))
-                       cargar inh nuevoestado -}
-
-{- -- función que implementa el comando contar_linea
-contar_linea :: [String] -> Estado -> (Estado, String) 
-contar_linea tokens estado = (foldl contar_token estado tokens, "contar_linea" )
-
-contar_token :: Estado -> String -> Estado
-contar_token estado tok = case Data.Map.lookup tok estado of
-                               Nothing -> Data.Map.insert tok 1 estado
-                               Just valor -> Data.Map.insert tok (valor+1) estado
-  
--- función que implementa el comando borrar
-cmd_borrar::[String] -> Estado -> (Estado, String)
-cmd_borrar [] estado = (estado, "No se especificó qué borrar")
-cmd_borrar (v:_) estado = if Data.Map.member v estado 
-                               then (Data.Map.delete v estado, v ++ " borrado")
-                               else (estado, v ++ " no aparece")
-
--- función que maneja un comando desconocido
-cmd_desconocido ::
-      String -> String -> Estado -> (Bool, Estado, String)
-cmd_desconocido cmd comando estado = (False,estado,mensaje)
-  where mensaje = "Comando desconocido ("++ cmd ++"): '" 
-                                         ++ comando ++ "'"
-
--- función que implementa el comando imp
-cmd_imp :: Estado -> (Estado, String)
-cmd_imp estado = (estado, show estado)
--}
-
--- función que va a cargar a un archivo el diccionario resultante
+{- Carga a un archivo el diccionario resultante -}
 descargar :: Handle -> [(String,[String])] -> IO ()
 descargar outh [] = return ()
 descargar outh ((k,v):kvs) = do hPutStrLn outh $ k ++ " " ++ (formatWordSep v)
@@ -409,4 +353,24 @@ formatWordSep :: [String] -> String
 formatWordSep [x] = x
 formatWordSep (x:xs) = x ++ "-" ++ formatWordSep xs
 
+{- Implementa el comando split -}
+cmd_split :: Estado -> Int -> String -> String -> String -> [String]
+cmd_split estado n opt1 opt2 txt | (opt1 == "s" && opt2 == "s") = separarYalinear estado n SEPARAR AJUSTAR txt
+                                 | (opt1 == "s" && opt2 == "n") = separarYalinear estado n SEPARAR NOAJUSTAR txt
+                                 | (opt1 == "n" && opt2 == "s") = separarYalinear estado n NOSEPARAR AJUSTAR txt
+                                 | otherwise = separarYalinear estado n NOSEPARAR NOAJUSTAR txt
 
+{- Carga el contenido de un txt a un string -}
+fromArchivoToString :: Handle -> String -> IO String
+fromArchivoToString inh txt = do
+      ineof <- hIsEOF inh
+      if ineof then return txt
+               else do inpStr <- hGetLine inh
+                       let nuevotxt = txt ++ inpStr
+                       fromArchivoToString inh nuevotxt
+
+{- Guarda el resultado del splitf en un txt -}
+cmd_splitfSave :: Handle -> [String] -> IO ()
+cmd_splitfSave outh [] = return ()
+cmd_splitfSave outh (x:xs) = do hPutStrLn outh $ x
+                                cmd_splitfSave outh xs
