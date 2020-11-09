@@ -1,10 +1,12 @@
+acera a-ce-ra
+alcanza al-can-za
 asi a-si
 bestias bes-tias
+bueno bue-no
 celebro ce-le-bro
 controla con-tro-la
 demasiado de-ma-sia-do
 dormir dor-mir
-elementalmente e-le-men-tal-men-te
 enflaquece en-fla-que-ce
 fermosura fer-mo-su-ra
 futuro fu-tu-ro
@@ -23,6 +25,7 @@ quejo que-jo
 razon ra-zon
 seco se-co
 sienten sien-ten
+sincero sin-ce-ro
 sino si-no
 sinrazon sin-ra-zon
 tristezas tris-te-zas

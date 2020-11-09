@@ -6,6 +6,7 @@ import qualified Data.Char
 import Data.List (sort,map, intercalate)
 import System.IO
 import Prelude hiding (null, lookup, map, filter)
+import System.Directory as Dir (doesFileExist)
 
 {- PROGRA 1 -}
 
@@ -285,11 +286,16 @@ mainloop estado = do
   
   case comando of
      "load" -> do
-               inh <- openFile firstEntry ReadMode
-               nuevoestado <- cargar inh Data.Map.empty -- acá iba estado, puse esto para que se cargue nuevo siempre
-               hClose inh
-               putStrLn $ firstEntry ++ " cargado" ++ "(" ++ (show (Data.Map.size nuevoestado)) ++ " palabras)"
-               mainloop nuevoestado
+               fileExists <- Dir.doesFileExist firstEntry
+               if fileExists == True then do
+                  inh <- openFile firstEntry ReadMode
+                  nuevoestado <- cargar inh Data.Map.empty -- acá iba estado, puse esto para que se cargue nuevo siempre
+                  hClose inh
+                  putStrLn $ firstEntry ++ " cargado" ++ "(" ++ (show (Data.Map.size nuevoestado)) ++ " palabras)"
+                  mainloop nuevoestado
+               else do 
+                  putStrLn $ "Error, archivo no encontrado"
+                  mainloop estado
      "show" -> do
                print (Data.Map.assocs estado)
                mainloop estado
@@ -301,24 +307,27 @@ mainloop estado = do
                outh <- openFile firstEntry WriteMode
                descargar outh (sort (Data.Map.toList estado))
                hClose outh
-               putStrLn $ "(" ++ (show (Data.Map.size estado)) ++ " palabras)"
+               putStrLn $ "Diccionario guardado (" ++ (show (Data.Map.size estado)) ++ " palabras)"
                mainloop estado
      "split" -> do 
                   let splitTemp = (cmd_split estado (read (tail(tokens)!!0) :: Int) (tail(tokens)!!1) (tail(tokens)!!2) (unwords (drop 4 tokens)))
                   putStrLn (intercalate "\n" splitTemp)
                   mainloop estado
      "splitf" -> do
-                   inh <- openFile (tail(tokens)!!3) ReadMode
-                   txtRes <- fromArchivoToString inh ""
-                   hClose inh
-                   --print (txtRes)
-                   let splitTemp2 = cmd_split estado (read (tail(tokens)!!0) :: Int) (tail(tokens)!!1) (tail(tokens)!!2) txtRes
-                   if ((length tokens) < 6) then putStrLn (intercalate "\n" splitTemp2)
+                   fileExists <- Dir.doesFileExist (tail(tokens)!!3)
+                   if fileExists == True then do
+                     inh <- openFile (tail(tokens)!!3) ReadMode
+                     txtRes <- fromArchivoToString inh ""
+                     hClose inh
+                     let splitTemp2 = cmd_split estado (read (tail(tokens)!!0) :: Int) (tail(tokens)!!1) (tail(tokens)!!2) txtRes
+                     if ((length tokens) < 6) then putStrLn (intercalate "\n" splitTemp2)
+                     else do 
+                              outh <- openFile (tail(tokens)!!4) WriteMode 
+                              cmd_splitfSave outh splitTemp2
+                              hClose outh
+                              putStrLn ("Guardado con exito")
                    else do 
-                           outh <- openFile (tail(tokens)!!4) WriteMode 
-                           cmd_splitfSave outh splitTemp2
-                           hClose outh
-                           putStrLn ("Guardado con exito")
+                      putStrLn $ "Error, archivo de lectura no encontrado"
                    mainloop estado
      "exit" -> do
                  putStrLn "Saliendo..."
